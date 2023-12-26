@@ -1,12 +1,14 @@
 import { Bucket, CreateBucketResponse, Storage } from '@google-cloud/storage';
 import axios from 'axios'
+import { Buffer } from 'buffer'
+import stream from 'stream'
 
 async function fetchConfiguration() {
   const username = 'longmengua';
   const repository = 'configuration';
   const branchName = 'master'
   const file = 'wmch-gcs-config.json';
-  const token = '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'
+  const token = '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'
 
   // https://raw.githubusercontent.com/longmengua/configuration/master/wmch-gcs-config.json
   const rawUrl = `https://raw.githubusercontent.com/${username}/${repository}/${branchName}/${file}`;
@@ -59,36 +61,51 @@ async function uploadFileToGCS(
   bucket: Bucket, 
   fileName: string, 
 ) {
-  // Replace 'path/to/local/file.txt' with the local path to the file you want to upload
-  const localFilePath = 'file.txt';
-  
-  await bucket
-    .upload(localFilePath, {
-      destination: fileName,
-    })
-    .catch(error => {
-      throw new Error(error);
-    });
+  const base64Content = 'dGVzdGluZyB0ZXN0aW5n'
+  // Decode the base64 string
+  const buffer = Buffer.from(base64Content, 'base64');
 
-  return `${bucket.name}/${fileName}`
+  // Create a Readable stream from the Buffer
+  const readableStream = new stream.Readable();
+  readableStream.push(buffer);
+  readableStream.push(null);
+
+  // Upload the stream directly to GCS
+  await new Promise((resolve, reject) => {
+    readableStream
+      .pipe(bucket.file(fileName).createWriteStream())
+      .on('error', reject)
+      .on('finish', resolve);
+  }).catch(error => {
+    throw new Error(error);
+  });
+
+  return `${fileName}`;
 }
 
 async function fetchFileFromGCS(
   bucket: Bucket, 
-  fileUrl: string,
+  fileName: string,
 ) {
-  const [fileName] = fileUrl.split('/')
   const file = bucket.file(fileName);
-  return file;
+
+  try {
+    const data = await file.download();
+    const content = data[0].toString();
+    return content;
+  } catch (error) {
+    throw error   
+  }
 }
 
 (async () => {
-  const bucketName = 'wmch-bk-bucket'
+  const bucketName = 'wmch-presale'
   const fileName = 'demo.txt'
   const credentials = await fetchConfiguration()
   
   const bucket = await getBucketFromGCS(credentials, bucketName)
   const fileUrl = await uploadFileToGCS(bucket, fileName)
+  // const fileUrl = `${fileName}`
   const res = await fetchFileFromGCS(bucket, fileUrl)
 
   console.log('status:', res)
