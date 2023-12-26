@@ -22,7 +22,7 @@ async function fetchConfiguration(): Promise<ConfigInterface> {
   const repository = 'configuration';
   const branchName = 'master'
   const file = 'wmch-gcs-config.json';
-  const token = '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'
+  const token = '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'
 
   // https://raw.githubusercontent.com/longmengua/configuration/master/wmch-gcs-config.json
   const rawUrl = `https://raw.githubusercontent.com/${username}/${repository}/${branchName}/${file}`;
@@ -112,6 +112,17 @@ async function fetchFileFromGCS(
   }
 }
 
+async function removeFileFromGCS(
+  bucket: Bucket, 
+  fileName: string,
+) {
+  const file = bucket.file(fileName);
+
+  const [res] = await file.delete().catch(error => { throw error });
+  return { code: res?.statusCode, data: res?.statusMessage, fileName }
+}
+
+
 (async () => {
   const bucketName = 'wmch-presale'
   const fileName = 'demo.txt'
@@ -120,7 +131,9 @@ async function fetchFileFromGCS(
   const bucket = await getBucketFromGCS(credentials, bucketName)
   const fileUrl = await uploadFileToGCS(bucket, fileName)
   // const fileUrl = `${fileName}`
-  const res = await fetchFileFromGCS(bucket, fileUrl)
+  const resA = await fetchFileFromGCS(bucket, fileUrl)
+  const resB = await removeFileFromGCS(bucket, fileUrl)
 
-  console.log('status:', res)
+  console.log('==resA:', resA)
+  console.log('==resB:', resB)
 })()
